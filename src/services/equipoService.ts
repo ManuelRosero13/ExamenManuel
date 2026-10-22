@@ -1,5 +1,6 @@
 import { db } from '../firebase/config'
-import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
+import { normalizarRol } from '../types'
 import type { MiembroEquipo, PokemonDetalle, Rol } from '../types'
 
 // Ruta de datos:  usuarios/{uid}/equipo/{pokemonId}
@@ -8,8 +9,18 @@ function coleccionEquipo(uid: string) {
 }
 
 export async function obtenerEquipo(uid: string): Promise<MiembroEquipo[]> {
-  const snap = await getDocs(query(coleccionEquipo(uid), orderBy('pokemonId')))
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<MiembroEquipo, 'id'>) }))
+  const snap = await getDocs(coleccionEquipo(uid))
+  return snap.docs
+    .map((d) => {
+      const datos = d.data() as Omit<MiembroEquipo, 'id'>
+      return {
+        id: d.id,
+        ...datos,
+        pokemonId: datos.pokemonId ?? Number(d.id),
+        rol: normalizarRol(datos.rol),
+      }
+    })
+    .sort((a, b) => a.pokemonId - b.pokemonId)
 }
 
 export async function agregarMiembro(uid: string, pokemon: PokemonDetalle): Promise<MiembroEquipo> {

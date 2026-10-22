@@ -3,7 +3,7 @@ import { ETIQUETA_ROL } from '../types'
 import type { Rol } from '../types'
 import { C } from '../tema'
 
-const ROLES: Rol[] = ['titular', 'reserva', 'suplente']
+const ROLES: Rol[] = ['titular', 'reserva', 'banca']
 
 interface Props {
   actual: Rol
@@ -13,8 +13,8 @@ interface Props {
 export default function SelectorRol({ actual, onElegir }: Props) {
   return (
     <View style={estilos.fila}>
-      {ROLES.map((r, i) => (
-        <Pressable key={i} style={[estilos.chip, actual === r && estilos.chipActivo]} onPress={() => onElegir(r)}>
+      {ROLES.map((r) => (
+        <Pressable key={r} style={[estilos.chip, actual === r && estilos.chipActivo]} onPress={() => onElegir(r)}>
           <Text style={[estilos.texto, actual === r && estilos.textoActivo]}>{ETIQUETA_ROL[r]}</Text>
         </Pressable>
       ))}

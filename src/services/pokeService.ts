@@ -4,9 +4,23 @@ const BASE = 'https://pokeapi.co/api/v2'
 
 export async function obtenerLista(limite = 30): Promise<PokemonResumen[]> {
   const res = await fetch(`${BASE}/pokemon?limit=${limite}`)
+
+  if (!res.ok) {
+    throw new Error(`Error al consultar Pokémon: HTTP ${res.status}`)
+  }
+
   const datos = await res.json()
-  return datos.results.map((r: { name: string }, i: number) => ({ id: i + 1, nombre: r.name }))
+
+  if (!Array.isArray(datos.results)) {
+    throw new Error('La respuesta de la API no tiene el formato esperado')
+  }
+
+  return datos.results.map((r: { name: string }, i: number) => ({
+    id: i + 1,
+    nombre: r.name,
+  }))
 }
+
 
 export async function obtenerDetalle(nombre: string): Promise<PokemonDetalle> {
   const res = await fetch(`${BASE}/pokemon/${encodeURIComponent(nombre)}`)

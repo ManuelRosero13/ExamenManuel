@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, Image, Pressable, StyleSheet } from 'react-native'
+import { Alert, View, Text, Image, Pressable, StyleSheet } from 'react-native'
 import SelectorRol from './SelectorRol'
 import { ETIQUETA_ROL } from '../types'
 import type { MiembroEquipo, Rol } from '../types'
@@ -13,6 +13,18 @@ interface Props {
 
 export default function TarjetaMiembro({ miembro, onCambiarRol, onQuitar }: Props) {
   const [expandido, setExpandido] = useState(false)
+
+  function confirmarQuitar() {
+    Alert.alert(
+      'Quitar Pokémon',
+      `¿Quieres quitar a ${miembro.nombre} de tu equipo?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Quitar', style: 'destructive', onPress: () => onQuitar(miembro) },
+      ],
+      { cancelable: true },
+    )
+  }
 
   return (
     <View style={estilos.tarjeta}>
@@ -29,7 +41,7 @@ export default function TarjetaMiembro({ miembro, onCambiarRol, onQuitar }: Prop
         <View>
           <Text style={estilos.tipos}>Tipos: {miembro.tipos.join(', ')}</Text>
           <SelectorRol actual={miembro.rol} onElegir={(rol) => onCambiarRol(miembro.id, rol)} />
-          <Pressable onClick={() => onQuitar(miembro)} style={estilos.botonQuitar}>
+          <Pressable onPress={confirmarQuitar} style={estilos.botonQuitar}>
             <Text style={estilos.textoQuitar}>Quitar</Text>
           </Pressable>
         </View>
@@ -47,6 +59,6 @@ const estilos = StyleSheet.create({
   rol: { color: C.suave, fontSize: 13, marginTop: 2 },
   flecha: { color: C.suave, fontSize: 14, paddingHorizontal: 6 },
   tipos: { color: C.suave, fontSize: 13, marginTop: 10 },
-  botonQuitar: { height: 28, paddingHorizontal: 10, borderRadius: 6, backgroundColor: '#7f1d1d', justifyContent: 'center', alignSelf: 'flex-start', marginTop: 12 },
+  botonQuitar: { minHeight: 44, minWidth: 44, paddingHorizontal: 12, borderRadius: 6, backgroundColor: '#7f1d1d', justifyContent: 'center', alignItems: 'center', alignSelf: 'flex-start', marginTop: 12 },
   textoQuitar: { color: '#fecaca', fontWeight: '700' },
 })

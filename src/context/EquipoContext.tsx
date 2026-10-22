@@ -3,17 +3,27 @@ import type { ReactNode } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { escucharSesion, registrarUsuario, entrarUsuario, salirUsuario } from '../services/authService'
 import { obtenerEquipo, agregarMiembro, actualizarRol, quitarMiembro, sembrarEquipo } from '../services/equipoService'
+import { normalizarRol } from '../types'
 import type { MiembroEquipo, PokemonDetalle, Rol, UsuarioActual } from '../types'
 
 const CLAVE_CACHE = '@equipo_cache'
 
-async function guardarCache(lista: MiembroEquipo[]): Promise<void> {
-  await AsyncStorage.setItem(CLAVE_CACHE, String(lista))
+async function guardarCache(uid: string, lista: MiembroEquipo[]): Promise<void> {
+  await AsyncStorage.setItem(`${CLAVE_CACHE}:${uid}`, JSON.stringify(lista))
 }
 
-async function leerCache(): Promise<MiembroEquipo[]> {
-  const crudo = await AsyncStorage.getItem(CLAVE_CACHE)
-  return crudo ? JSON.parse(crudo) : []
+async function leerCache(uid: string): Promise<MiembroEquipo[]> {
+  const crudo = await AsyncStorage.getItem(`${CLAVE_CACHE}:${uid}`)
+  if (!crudo) return []
+
+  try {
+    const datos = JSON.parse(crudo)
+    return Array.isArray(datos)
+      ? datos.map((miembro) => ({ ...miembro, rol: normalizarRol(miembro?.rol) }))
+      : []
+  } catch {
+    return []
+  }
 }
 
 interface ValorContexto {
@@ -53,13 +63,44 @@ export function EquipoProvider({ children }: { children: ReactNode }) {
 
   // Al haber usuario: primero se muestra la caché y luego se pide el equipo a Firestore.
   useEffect(() => {
-    if (!usuario) return
-    async function iniciar() {
-      const cache = await leerCache()
-      setEquipo(cache)
-      await cargarEquipo()
+    if (!usuario) {
+      setEquipo([])
+      setErrorEquipo('')
+      setCargandoEquipo(false)
+      return
     }
-    iniciar()
+    let vigente = true
+    const uid = usuario.uid
+    setCargandoEquipo(true)
+    setErrorEquipo('')
+
+    async function iniciar() {
+      try {
+        const cache = await leerCache(uid)
+        if (vigente) setEquipo(cache)
+      } catch {
+        // La caché es opcional; un fallo local no debe impedir consultar Firestore.
+      }
+
+      try {
+        const datos = await obtenerEquipo(uid)
+        if (!vigente) return
+        setEquipo(datos)
+        setErrorEquipo('')
+        await guardarCache(uid, datos)
+      } catch {
+        if (vigente) {
+          setErrorEquipo('No se pudo cargar tu equipo. Revisa tu conexión y las reglas de Firestore.')
+        }
+      } finally {
+        if (vigente) setCargandoEquipo(false)
+      }
+    }
+
+    void iniciar()
+    return () => {
+      vigente = false
+    }
   }, [usuario?.uid])
 
   function uidActual(): string {
@@ -73,7 +114,7 @@ export function EquipoProvider({ children }: { children: ReactNode }) {
     try {
       const datos = await obtenerEquipo(uidActual())
       setEquipo(datos)
-      await guardarCache(datos)
+      await guardarCache(uidActual(), datos)
     } catch (e) {
       setErrorEquipo('No se pudo cargar tu equipo. Revisa tu conexión y las reglas de Firestore.')
     } finally {
@@ -86,23 +127,48 @@ export function EquipoProvider({ children }: { children: ReactNode }) {
     const nuevo = await agregarMiembro(uidActual(), pokemon)
     const lista = [...equipo, nuevo]
     setEquipo(lista)
-    await guardarCache(lista)
+    await guardarCache(uidActual(), lista)
     return 'agregado'
   }
 
   async function quitar(id: string): Promise<void> {
-    await quitarMiembro(uidActual(), id)
+    const anterior = equipo
     const lista = equipo.filter((m) => m.id !== id)
     setEquipo(lista)
-    await guardarCache(lista)
+    setErrorEquipo('')
+
+    try {
+      await guardarCache(uidActual(), lista)
+      await quitarMiembro(uidActual(), id)
+    } catch {
+      setEquipo(anterior)
+      try {
+        await guardarCache(uidActual(), anterior)
+      } catch {
+        setErrorEquipo('No se pudo quitar el Pokémon ni restaurar el equipo guardado en este dispositivo.')
+        return
+      }
+      setErrorEquipo('No se pudo quitar el Pokémon. Revisa tu conexión y las reglas de Firestore.')
+    }
   }
 
   async function cambiarRol(id: string, rol: Rol): Promise<void> {
     const miembro = equipo.find((m) => m.id === id)
     if (!miembro) return
-    await actualizarRol(uidActual(), id, rol)
-    miembro.rol = rol
-    setEquipo(equipo)
+    const rolAnterior = miembro.rol
+    const lista = equipo.map((miembro) => miembro.id === id ? { ...miembro, rol } : miembro)
+    setEquipo(lista)
+    setErrorEquipo('')
+
+    try {
+      await actualizarRol(uidActual(), id, rol)
+      await guardarCache(uidActual(), lista)
+    } catch {
+      setEquipo((actual) => actual.map((miembro) =>
+        miembro.id === id && miembro.rol === rol ? { ...miembro, rol: rolAnterior } : miembro
+      ))
+      setErrorEquipo('No se pudo guardar el nuevo rol. Revisa tu conexión y las reglas de Firestore.')
+    }
   }
 
   async function sembrar(): Promise<void> {

@@ -1,5 +1,11 @@
 export type Rol = 'titular' | 'reserva' | 'banca'
 
+export function normalizarRol(rol: unknown): Rol {
+  if (rol === 'titular' || rol === 'reserva' || rol === 'banca') return rol
+  if (rol === 'suplente') return 'banca'
+  return 'reserva'
+}
+
 export const ETIQUETA_ROL: Record<Rol, string> = {
   titular: 'Titular',
   reserva: 'Reserva',

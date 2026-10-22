@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet } from 'react-native'
+import { View, Text, FlatList, Pressable, ActivityIndicator, StyleSheet } from 'react-native'
 import TarjetaMiembro from '../components/TarjetaMiembro'
 import { useEquipo } from '../context/EquipoContext'
 import { C } from '../tema'
@@ -23,11 +23,14 @@ export default function EquipoScreen() {
         </View>
       )}
       {equipo.length > 0 && (
-        <ScrollView contentContainerStyle={estilos.lista}>
-            {equipo.map((m) => (
-              <TarjetaMiembro miembro={m} onCambiarRol={cambiarRol} onQuitar={(mm) => quitar(mm.id)} />
-            ))}
-        </ScrollView>
+        <FlatList
+          data={equipo}
+          keyExtractor={(miembro) => miembro.id}
+          renderItem={({ item }) => (
+            <TarjetaMiembro miembro={item} onCambiarRol={cambiarRol} onQuitar={(miembro) => quitar(miembro.id)} />
+          )}
+          contentContainerStyle={estilos.lista}
+        />
       )}
     </View>
   )
